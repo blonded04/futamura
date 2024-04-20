@@ -9,12 +9,12 @@ esp_fmt:	.string "esp: 0x%x\n"
 ebp_fmt:	.string "ebp: 0x%x\n"
 
 	.macro PRINT_REG fmt reg
-#	pusha
-#	pushl \reg
-#	pushl $\fmt
-#	call Lprintf_unsafe
-#	addl $8, %esp
-#	popa
+	pusha
+	pushl \reg
+	pushl $\fmt
+	call Lprintf_unsafe
+	addl $8, %esp
+	popa
 	.endm
 
 	.macro NEXT_ITER
@@ -97,19 +97,14 @@ entry_point:
 	andb    $240,%ah
 	shrb 	$4,%ah
 
-	PRINT_REG eax_fmt %eax
-	movl (global_data+0), %ecx
-	PRINT_REG ebx_fmt %ecx
-	movl (global_data+4), %ecx
-	PRINT_REG ecx_fmt %ecx
-	movl (global_data+8), %ecx
-	PRINT_REG edx_fmt %ecx
+	# PRINT_REG eax_fmt %eax
+
 # Outer switch
 	movsx   %ah,%ebx
 	movl    high(,%ebx,0x4),%ebx
 	jmp    *%ebx
 
-high: .int binop,trivial,ld,0,st,cond_jump,0,builtin
+high: .int binop,trivial,ld,lda,st,cond_jump,0,builtin
 
 binop:
 	SWITCH %al binops
@@ -122,6 +117,10 @@ trivials: .int bc_const,0,bc_sexp,bc_sti,bc_sta,bc_jmp,bc_end,0,bc_drop,bc_dup,0
 st:
 	SWITCH %al sts
 sts: .int bc_st_g,bc_st_l,bc_st_a
+
+lda:
+	SWITCH %al ldas
+ldas: .int bc_lda_g,bc_lda_l,bc_lda_a
 
 ld:
 	SWITCH %al lds
@@ -277,14 +276,19 @@ bc_sti:
 	NEXT_ITER
 
 bc_sta:
-	WORD %ecx
-	POP 	%eax
-	POP 	%ecx
-	POP 	%edx
-	pushl 	%edx
+	POP	%eax # value
+	POP	%ecx # index | address
+	movl %ecx, %edx # index | address
+	movl %ecx, %ebx
+	andl $1, %ebx
+	jz two_args
+			 # ecx index now
+	POP	%edx # address
+two_args: 	# ecx address now
+	pushl	%edx
 	pushl 	%ecx
 	pushl 	%eax
-	call 	Bsta
+	call	Bsta
 	PUSH	%eax
 	addl	$12, %esp
 	NEXT_ITER
@@ -376,7 +380,27 @@ bc_ld_l:
 bc_ld_a:
 	WORD %ecx
 	/*  Maybe it should be 8, not 4 (resolve on merging vs Call)  */
-	movl	4(%ebp, %ecx, 4), %eax
+	movl	8(%ebp, %ecx, 4), %eax
+	PUSH	%eax
+	NEXT_ITER
+
+bc_lda_g:
+	WORD %ecx
+	lea global_data(, %ecx, 4), %eax
+	PUSH %eax
+	NEXT_ITER
+
+bc_lda_l:
+	WORD %ecx
+	negl	%ecx
+	lea	-4(%ebp, %ecx, 4), %eax
+	PUSH	%eax
+	NEXT_ITER
+
+bc_lda_a:
+	WORD %ecx
+	/*  Maybe it should be 8, not 4 (resolve on merging vs Call)  */
+	lea	8(%ebp, %ecx, 4), %eax
 	PUSH	%eax
 	NEXT_ITER
 
@@ -528,6 +552,7 @@ fmt:	.string "%x\n"
 instr_begin: .int 0
 
 # Stack space
+.align 4
 stack:	.zero 4096
-
+.align 4
 global_data: .zero 4096
