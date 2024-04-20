@@ -114,6 +114,7 @@ lds: .int bc_ld_g,bc_ld_l,bc_ld_a
 
 cond_jump:
 	SWITCH %al cond_jumps
+# TODO: is bc_call ok here?
 cond_jumps: .int bc_cjmpz,bc_cjmpnz,bc_begin,0,0,0,bc_call,bc_tag,bc_array,bc_fail,bc_line
 
 
