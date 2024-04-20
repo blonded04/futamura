@@ -1,5 +1,22 @@
 # Various macro definitions
 # fixnum arithmetics: make box for an integer
+eax_fmt:	.string "eax: 0x%x\n"
+ebx_fmt:	.string "ebx: 0x%x\n"
+ecx_fmt:	.string "ecx: 0x%x\n"
+edx_fmt:	.string "edx: 0x%x\n"
+edi_fmt:	.string "edi: 0x%x\n"
+esp_fmt:	.string "esp: 0x%x\n"
+ebp_fmt:	.string "ebp: 0x%x\n"
+
+	.macro PRINT_REG fmt reg
+#	pusha
+#	pushl \reg
+#	pushl $\fmt
+#	call Lprintf_unsafe
+#	addl $8, %esp
+#	popa
+	.endm
+
 	.macro NEXT_ITER
 	jmp entry_point
 	.endm
@@ -45,16 +62,6 @@
 	jmp     *%ebx
 	.endm
 
-
-	.global eval
-	.data
-# Format string for debugging
-fmt:	.string "%x\n"
-instr_begin: .int 0
-
-# Stack space
-stack:	.zero 512
-
 	.text
 
 # Taking the pointer to the bytecode buffer
@@ -89,6 +96,14 @@ entry_point:
 	andb    $15,%al
 	andb    $240,%ah
 	shrb 	$4,%ah
+
+	PRINT_REG eax_fmt %eax
+	movl (global_data+0), %ecx
+	PRINT_REG ebx_fmt %ecx
+	movl (global_data+4), %ecx
+	PRINT_REG ecx_fmt %ecx
+	movl (global_data+8), %ecx
+	PRINT_REG edx_fmt %ecx
 # Outer switch
 	movsx   %ah,%ebx
 	movl    high(,%ebx,0x4),%ebx
@@ -323,7 +338,7 @@ bc_tag:
 	FIX_BOX	%ecx
 	POP 	%edx
 	pushl	%ecx
-	pushl	%eax	
+	pushl	%eax
 	pushl 	%edx
 	call 	Btag
 	PUSH	%eax
@@ -389,9 +404,9 @@ bc_cjmpz:
 	WORD %ecx
 	POP	%eax
 	FIX_UNB	%eax
-	addl	instr_begin, %ecx
 	testl	%eax, %eax
-	je	not_go1
+	jnz	not_go1
+	addl	instr_begin, %ecx
 	movl	%ecx, %edi
 not_go1:
 	NEXT_ITER
@@ -402,7 +417,7 @@ bc_cjmpnz:
 	FIX_UNB	%eax
 	addl	instr_begin, %ecx
 	testl	%eax, %eax
-	jne	not_go2
+	jz	not_go2
 	movl	%ecx, %edi
 not_go2:
 	NEXT_ITER
@@ -491,6 +506,7 @@ bc_begin:
 	WORD %edx /* locals_number */
 	pushl %ebp
 	movl %esp, %ebp
+	lea (,%edx,4), %edx
 	subl %edx, %esp
 	addl %edx, %esi
 	NEXT_ITER
@@ -499,8 +515,19 @@ bc_end:
 	leave
 	ret /* Return from lama function */
 
+
 	.data
 	.global sexp_string_buffer
 scanline: .asciz "something bad happened"
-global_data: .skip 4 * 1000
-sexp_string_buffer: .int
+sexp_string_buffer: .int 0
+
+
+	.global eval
+# Format string for debugging
+fmt:	.string "%x\n"
+instr_begin: .int 0
+
+# Stack space
+stack:	.zero 4096
+
+global_data: .zero 4096

@@ -1084,6 +1084,10 @@ extern void *LgetEnv (char *var) {
 
 extern int Lsystem (char *cmd) { return BOX(system(cmd)); }
 
+extern void Lprintf_unsafe (char *s, int arg) {
+  fprintf(stderr, s, arg);
+}
+
 extern void Lfprintf (FILE *f, char *s, ...) {
   va_list args = (va_list)BOX(NULL);
 
