@@ -467,6 +467,7 @@ bc_read:
 	PUSH	%eax
 	NEXT_ITER
 
+# TODO: need to differ builtins calls and user-defined function-calls
 bc_call:
 	WORD %ecx /* label */
 	WORD %edx /* args number */
