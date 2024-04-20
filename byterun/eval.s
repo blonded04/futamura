@@ -102,7 +102,7 @@ binops:	.int 0,b_add,b_sub,b_mul,b_div,b_mod,b_lt,b_le,b_gt,b_ge,b_eq,b_neq,b_an
 
 trivial:
 	SWITCH %al trivials
-trivials: .int bc_const,0,bc_sexp,bc_sti,0,bc_jmp,bc_end,0,bc_drop,bc_dup,0,bc_elem
+trivials: .int bc_const,0,bc_sexp,bc_sti,bc_sta,bc_jmp,bc_end,0,bc_drop,bc_dup,0,bc_elem
 
 st:
 	SWITCH %al sts
@@ -114,12 +114,13 @@ lds: .int bc_ld_g,bc_ld_l,bc_ld_a
 
 cond_jump:
 	SWITCH %al cond_jumps
-cond_jumps: .int bc_cjmpz,bc_cjmpnz,bc_begin,0,0,0,0,bc_tag,bc_array,bc_fail,bc_line
+# TODO: is bc_call ok here?
+cond_jumps: .int bc_cjmpz,bc_cjmpnz,bc_begin,0,0,0,bc_call,bc_tag,bc_array,bc_fail,bc_line
 
 
 builtin:
 	SWITCH %al builtins
-builtins: .int bc_read,bc_write,0,0,0
+builtins: .int bc_read,bc_write,0,0,bc_array
 
 b_add:	POP2 	%eax %ebx
 	FIX_UNB %eax
@@ -467,6 +468,7 @@ bc_read:
 	PUSH	%eax
 	NEXT_ITER
 
+# TODO: need to differ builtins calls and user-defined function-calls
 bc_call:
 	WORD %ecx /* label */
 	WORD %edx /* args number */
