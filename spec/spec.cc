@@ -84,6 +84,12 @@ std::string disassemble (FILE *f, bytefile *bf) {
   const char *pats[] = {"=str", "#string", "#array", "#sexp", "#ref", "#val", "#fun"};
   const char *lds [] = {"LD", "LDA", "ST"};
   std::stringstream ss;
+  std::string label = 0;
+  int cur_offset = 0;
+
+  auto get_cur_offset = [&]() -> int {
+    return reinterpret_cast<int>(ip);
+  };
 
   auto emit_code = [&ss] (const std::string &s) {
     ss << s;
@@ -274,11 +280,13 @@ std::string disassemble (FILE *f, bytefile *bf) {
         break;
 
       case  5:
-        std::fprintf (f, "JMP\t0x%.8x", INT);
+        ss << "  jmp " << gen_label(INT) << "\n";
         break;
 
       case  6:
-        std::fprintf (f, "END");
+        ss << R"(
+	leave
+	retl)" << "\n";
         break;
 
       case  7:
@@ -318,44 +326,81 @@ std::string disassemble (FILE *f, bytefile *bf) {
     case 5:
       switch (l) {
       case  0:
-        std::fprintf (f, "CJMPz\t0x%.8x", INT);
+      cur_offset = get_cur_offset();
+      label = gen_label(INT);
+        ss << " movl " << INT << R"( %ecx
+	POP	%eax
+	FIX_UNB	%eax
+	testl	%eax, %eax
+	jnz	not_go)"  << cur_offset << "\n" <<
+"  jmp "        << label << "\n" <<
+"  not_go" << cur_offset <<":\n";
         break;
 
       case  1:
-        std::fprintf (f, "CJMPnz\t0x%.8x", INT);
+      cur_offset = get_cur_offset();
+      label = gen_label(INT);
+        ss << " movl " << INT << R"( %ecx
+	POP	%eax
+	FIX_UNB	%eax
+	testl	%eax, %eax
+	jz	not_go)"  << cur_offset << "\n" <<
+"  jmp "        << label   << "\n" <<
+"  not_go" << cur_offset <<":\n";
         break;
 
       case  2:
-        std::fprintf (f, "BEGIN\t%d ", INT);
-        std::fprintf (f, "%d", INT);
+        ss << " movl " << INT << R"( %ecx)" << "\n" <<
+              " movl " << INT << R"( %edx)" << "\n" <<
+R"(pushl %ebp
+	movl %esp, %ebp
+	lea (,%edx,4), %edx
+	subl %edx, %esp)" << "\n";
         break;
 
       case  3:
-        std::fprintf (f, "CBEGIN\t%d ", INT);
-        std::fprintf (f, "%d", INT);
+        throw std::runtime_error("Unreachable code");
         break;
 
       case  4:
-        std::fprintf (f, "CLOSURE\t0x%.8x", INT);
-        {int n = INT;
-         for (int i = 0; i<n; i++) {
-         switch (BYTE) {
-           case 0: std::fprintf (f, "G(%d)", INT); break;
-           case 1: std::fprintf (f, "L(%d)", INT); break;
-           case 2: std::fprintf (f, "A(%d)", INT); break;
-           case 3: std::fprintf (f, "C(%d)", INT); break;
-         }
-         }
-        };
+        throw std::runtime_error("Unreachable code");
         break;
 
       case  5:
-        std::fprintf (f, "CALLC\t%d", INT);
+        throw std::runtime_error("Unreachable code");
         break;
 
       case  6:
-        std::fprintf (f, "CALL\t0x%.8x ", INT);
-        std::fprintf (f, "%d", INT);
+        cur_offset = get_cur_offset();
+        label = INT;
+        ss << " movl " << INT << R"( %ecx)" << "\n" <<
+R"(
+  pushl %eax
+	pushl %ebx
+	pushl %ecx
+	pushl %edx
+
+	negl %ecx
+	lea (%esi, %ecx, 4), %eax
+	pushl %ebp
+	movl %esp, %ebp
+for)" << cur_offset << R"(:
+	cmpl %eax, %esi
+	je after)" << cur_offset << R"(
+	POP %ebx
+	pushl %ebx
+	jmp for)" << cur_offset << R"(
+after)" << cur_offset << R"(:
+
+	call )" << label << R"(
+
+	movl %ebp, %esp
+	popl %ebp
+
+	popl %edx
+	popl %ecx
+	popl %ebx
+	popl %eax)" << "\n";
         break;
 
       case  7:
@@ -379,7 +424,7 @@ std::string disassemble (FILE *f, bytefile *bf) {
       break;
 
     case 6:
-      std::fprintf (f, "PATT\t%s", pats[l]);
+              throw std::runtime_error("Unreachable code");
       break;
 
     case 7: {
