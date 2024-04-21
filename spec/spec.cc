@@ -81,7 +81,7 @@ std::string disassemble (FILE *f, bytefile *bf) {
   const char *pats[] = {"=str", "#string", "#array", "#sexp", "#ref", "#val", "#fun"};
   const char *lds [] = {"LD", "LDA", "ST"};
   std::stringstream ss;
-  std::string label = 0;
+  std::string label;
   int cur_offset = 0;
 
   auto get_cur_offset = [&]() -> int {
@@ -288,7 +288,7 @@ __stop_custom_data: .int 0;
       switch (l) {
       case  0: {
         int literal = INT;
-        emit_code(std::string("\tmovl $") + std::to_string(literal) + ", %ecx\n"   
+        emit_code(std::string("\tmovl $") + std::to_string(literal) + ", %ecx\n"
                   + "\tFIX_BOX	%ecx\n"
                   + "\tPUSH 	%ecx\n");
         break;
@@ -395,27 +395,27 @@ sexp_push_loop_end)" << cur_offset << R"(:
       switch (l) {
       case 0: {
         int ecx = INT;
-        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n")
                  	+ "\tmovl	global_data(, %ecx, 4), %eax"
-                  + "PUSH %eax"); 
+                  + "PUSH %eax");
         break;
-      } 
-      
+      }
+
       case 1: {
         int ecx = INT;
-        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n")
                   + "\tnegl %ecx\n"
                  	+ "\tmovl	-4(%ebp, %ecx, 4), %eax\n"
-                  + "PUSH %eax\n"); 
+                  + "PUSH %eax\n");
         break;
-      } 
+      }
       case 2: {
         int ecx = INT;
-        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n")
                  	+ "\tmovl	8(%ebp, %ecx, 4), %eax\n"
-                  + "PUSH %eax\n"); 
+                  + "PUSH %eax\n");
         break;
-      } 
+      }
       }
       break;
 
@@ -423,69 +423,89 @@ sexp_push_loop_end)" << cur_offset << R"(:
           switch (l) {
       case 0: {
         int ecx = INT;
-        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n")
                  	+ "\tlea global_data(, %ecx, 4), %eax\n"
-                  + "PUSH %eax"); 
+                  + "PUSH %eax");
         break;
-      } 
-      
+      }
+
       case 1: {
         int ecx = INT;
-        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") + 
-                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n" 
-                 	+ "\tmovl	%eax, global_data(, %ecx, 4)\n"); 
+        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") +
+                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n"
+                 	+ "\tmovl	%eax, global_data(, %ecx, 4)\n");
         break;
-      } 
+      }
       case 2: {
         int ecx = INT;
-        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n")
                  	+ "\tlea	8(%ebp, %ecx, 4), %eax\n"
-                  + "PUSH %eax\n"); 
+                  + "PUSH %eax\n");
         break;
-      } 
+      }
       }
       break;
     case 4:
       switch (l) {
       case 0: {
         int ecx = INT;
-        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") + 
-                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n" 
-                 	+ "\tmovl	%eax, global_data(, %ecx, 4)\n"); 
+        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") +
+                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n"
+                 	+ "\tmovl	%eax, global_data(, %ecx, 4)\n");
         break;
-      } 
-      
+      }
+
       case 1: {
         int ecx = INT;
-        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") + 
+        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") +
                   + "\tmovl $" + std::to_string(ecx) + ", %ecx\n"
-                  + "\tnegl	%ecx\n" 
-                 	+ "\tmovl	%eax, -4(%ebp, %ecx, 4)\n"); 
+                  + "\tnegl	%ecx\n"
+                 	+ "\tmovl	%eax, -4(%ebp, %ecx, 4)\n");
         break;
-      } 
+      }
       case 2: {
         int ecx = INT;
-        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") + 
-                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n" 
-                 	+ "\tmovl	%eax, 8(%ebp, %ecx, 4)\n"); 
+        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") +
+                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n"
+                 	+ "\tmovl	%eax, 8(%ebp, %ecx, 4)\n");
         break;
-      } 
+      }
       }
       break;
 
     case 5:
       switch (l) {
       case  0:
-        ss << " movl " << INT << R"( %ecx)" << "\n" <<
-        << R"(
-  FIX_BOX	%ecx
-	POP 	%edx
-	pushl	%ecx
-	pushl 	%edx
-	call 	Barray_patt
-	PUSH	%eax
-	addl	$8, %esp
-)";
+      cur_offset = get_cur_offset();
+      label = gen_label(INT);
+        ss << " movl $" << INT << R"( %ecx
+	POP	%eax
+	FIX_UNB	%eax
+	testl	%eax, %eax
+	jnz	not_go)"  << cur_offset << "\n" <<
+"  jmp "        << label << "\n" <<
+"  not_go" << cur_offset <<":\n";
+        break;
+
+      case  1:
+      cur_offset = get_cur_offset();
+      label = gen_label(INT);
+        ss << " movl $" << INT << R"(, %ecx
+	POP	%eax
+	FIX_UNB	%eax
+	testl	%eax, %eax
+	jz	not_go)"  << cur_offset << "\n" <<
+"  jmp "        << label   << "\n" <<
+"  not_go" << cur_offset <<":\n";
+        break;
+
+      case  2:
+        ss << " movl $" << INT << R"(, %ecx)" << "\n" <<
+              " movl $" << INT << R"(, %edx)" << "\n" <<
+R"(pushl %ebp
+	movl %esp, %ebp
+	lea (,%edx,4), %edx
+	subl %edx, %esp)" << "\n";
         break;
 
       case  3:
@@ -503,7 +523,7 @@ sexp_push_loop_end)" << cur_offset << R"(:
       case  6:
         cur_offset = get_cur_offset();
         label = gen_label(INT);
-        ss << " movl " << INT << R"( %ecx)" << "\n" <<
+        ss << " movl $" << INT << R"(, %ecx)" << "\n" <<
 R"(
   pushl %eax
 	pushl %ebx
@@ -534,13 +554,13 @@ after)" << cur_offset << R"(:
         break;
 
       case  7:
-        ss << " movl $" << STRING << R"( %eax)" << "\n" <<
+        ss << " movl $" << STRING << R"(, %eax)" << "\n" <<
 R"(
   pushl   %eax
   call	LtagHash
 	addl	$4, %esp
 )" <<
-              " movl " << INT << R"( %ecx)" << "\n" <<
+              " movl $" << INT << R"(, %ecx)" << "\n" <<
   R"(
   FIX_BOX	%ecx
 	POP 	%edx
@@ -555,7 +575,7 @@ R"(
 
       case  8:
         cur_offset = get_cur_offset();
-        ss << " movl " << INT << R"( %ecx)" << "\n" <<
+        ss << " movl $" << INT << R"(, %ecx)" << "\n" <<
 R"(
 	movl	%ecx, %edx
 	testl	%edx, %edx
@@ -584,7 +604,7 @@ array_push_loop_end)" << cur_offset << R"(:
         break;
 
       case 10:
-        ss << " movl " << INT << R"( %ecx)" << "\n";
+        ss << " movl $" << INT << R"(, %ecx)" << "\n";
         break;
       }
       break;
