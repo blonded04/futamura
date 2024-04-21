@@ -11,6 +11,7 @@ check: $(TESTS)
 
 $(TESTS): %: %.bc
 	@echo $@
+	lamac -b $@.lama
 	../byterun/byterun $< < $@.input > $@.actual && diff $@.actual $@.expected
 
 clean:
