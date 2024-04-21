@@ -90,6 +90,7 @@ eval:
 
 entry_point:
 # Decode next insn
+	movl %edi, %edx
 	xorl	%eax, %eax
 	BYTE	%al
 	movb	%al,%ah
@@ -97,7 +98,11 @@ entry_point:
 	andb    $240,%ah
 	shrb 	$4,%ah
 
-	# PRINT_REG eax_fmt %eax
+#	subl instr_begin, %edx
+#	PRINT_REG edi_fmt %edx
+#	PRINT_REG eax_fmt %eax
+#	PRINT_REG esp_fmt %esp
+#	PRINT_REG ebp_fmt %ebp
 
 # Outer switch
 	movsx   %ah,%ebx
@@ -509,20 +514,41 @@ bc_read:
 
 # TODO: need to differ builtins calls and user-defined function-calls
 bc_call:
-	WORD %ecx /* label */
-	WORD %edx /* args number */
-	pusha
-	negl %edx
-	addl	instr_begin, %ecx
-	movl	%ecx, %edi
-	lea	(%esi, %edx, 4), %eax
+	WORD %edx /* label */
+	WORD %ecx /* args number */
+
+	pushl %eax
+	pushl %ebx
+	pushl %ecx
+	pushl %edx
+	pushl %edi
+
+	negl %ecx
+	lea (%esi, %ecx, 4), %eax
+	pushl %ebp
+	movl %esp, %ebp
 for:
-	pushl	4(%eax)
-	addl	$4, %eax
-	cmp %eax, %esi
-	jne for
+	cmpl %eax, %esi
+	je after
+	POP %ebx
+	pushl %ebx
+	jmp for
+after:
+
+	addl	instr_begin, %edx
+	movl	%edx, %edi
+
 	call entry_point
-	popa
+
+	movl %ebp, %esp
+	popl %ebp
+
+	popl %edi
+	popl %edx
+	popl %ecx
+	popl %ebx
+	popl %eax
+
 	NEXT_ITER
 
 bc_begin:
@@ -532,12 +558,11 @@ bc_begin:
 	movl %esp, %ebp
 	lea (,%edx,4), %edx
 	subl %edx, %esp
-	addl %edx, %esi
 	NEXT_ITER
 
 bc_end:
 	leave
-	ret /* Return from lama function */
+	retl /* Return from lama function */
 
 
 	.data
@@ -547,8 +572,6 @@ sexp_string_buffer: .int 0
 
 
 	.global eval
-# Format string for debugging
-fmt:	.string "%x\n"
 instr_begin: .int 0
 
 # Stack space
