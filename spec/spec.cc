@@ -141,30 +141,15 @@ std::string disassemble (FILE *f, bytefile *bf) {
         emit_code(R"(
 	addl	%eax, %ebx
         )");
+        break;
         case 1:
         emit_code(R"(
 	subl	%eax, %ebx
         )");
+        break;
         case 2: // mul
         emit_code(R"(
 	imul	%ebx
-        )");
-        case 11: // and
-        emit_code(R"(
-	andl	%ebx, %eax
-        )");
-        case 12: // or
-        emit_code(R"(
-	orl		%ebx, %eax
-        )");
-        case 0: // add
-        case 1: // sub
-        case 2: // mul
-        case 11: // and
-        case 12: // or
-        emit_code(R"(
-	FIX_BOX %eax
-	PUSH	%eax
         )");
         break;
         case 3: // div
@@ -173,16 +158,15 @@ std::string disassemble (FILE *f, bytefile *bf) {
 	cltd
 	idiv	%ebx
         )");
-        case 3: // div
+        break;
+        case 11: // and
         emit_code(R"(
-	FIX_BOX %eax
-	PUSH	%eax
+	andl	%ebx, %eax
         )");
         break;
-        case 4: // mod
+        case 12: // or
         emit_code(R"(
-	FIX_BOX %edx
-	PUSH	%edx
+	orl		%ebx, %eax
         )");
         break;
         case 5: // eq
@@ -194,31 +178,64 @@ std::string disassemble (FILE *f, bytefile *bf) {
         emit_code(R"(
 	xorl	%edx, %edx
 	cmpl	%eax, %ebx
-  )");"
+        )");
+        break;
+      }
+      switch (l) {
+        case 0: // add
+        case 1: // sub
+        case 2: // mul
+        case 11: // and
+        case 12: // or
+        emit_code(R"(
+  FIX_BOX %eax
+  PUSH	%eax
+        )");
+        break;
+        case 3: // div
+        emit_code(R"(
+	FIX_BOX %eax
+	PUSH	%eax
+        )");
+        break;
+        case 4: // mod
+        emit_code(R"(
+	FIX_BOX %edx
+	PUSH	%edx
+        )");
+        break;
         case 5: // eq
         emit_code(R"(
 	seteb	%dl
-        )");"
+        )");
+        break;
         case 6: // neq
         emit_code(R"(
 	setneb	%dl
-        )");"
+        )");
+        break;
         case 7: // lt
         emit_code(R"(
 	setlb	%dl
-        )");"
+        )");
+        break;
         case 8: // le
         emit_code(R"(
 	setleb	%dl
-        )");"
+        )");
+        break;
         case 9: // gt
         emit_code(R"(
 	setgb	%dl
-        )");"
+        )");
+        break;
         case 10: // ge
         emit_code(R"(
 	setgeb	%dl
-        )");"
+        )");
+        break;
+      }
+      switch (l) {
         case 5: // eq
         case 6: // neq
         case 7: // lt
@@ -228,7 +245,7 @@ std::string disassemble (FILE *f, bytefile *bf) {
         emit_code(R"(
 	FIX_BOX %edx
 	PUSH	%edx
-        )");"
+        )");
         break;
       }
       break;
@@ -372,7 +389,6 @@ std::string disassemble (FILE *f, bytefile *bf) {
         break;
 
       case 1:
-        std::fprintf (f, "CALL\tLwrite");
         emit_code(R"(
 	POP		%ebx
 	pushl	%ebx
