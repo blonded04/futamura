@@ -5,6 +5,7 @@
 
 # VSCode history files
 **/.history/*
+**/.vscode/*
 
 # Lama bytecode files
 *.bc
