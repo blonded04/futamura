@@ -286,10 +286,13 @@ __stop_custom_data: .int 0;
 
     case 1:
       switch (l) {
-      case  0:
-        std::fprintf (f, "CONST\t%d", INT);
+      case  0: {
+        int literal = INT;
+        emit_code(std::string("\tmovl $") + std::to_string(literal) + ", %ecx\n"   
+                  + "\tFIX_BOX	%ecx\n"
+                  + "\tPUSH 	%ecx\n");
         break;
-
+      }
       case  1:
         std::fprintf (f, "STRING\t%s", STRING);
         break;
