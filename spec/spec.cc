@@ -10,9 +10,6 @@
 
 extern "C" char* sexp_string_buffer;
 
-void *__start_custom_data;
-void *__stop_custom_data;
-
 /* The unpacked representation of bytecode file */
 struct bytefile {
   char *string_ptr;              /* A pointer to the beginning of the string table */
@@ -102,6 +99,33 @@ std::string disassemble (FILE *f, bytefile *bf) {
   };
 
   emit_code(R"(
+	.data
+	.global sexp_string_buffer
+scanline: .asciz "something bad happened"
+sexp_string_buffer: .int 0
+
+
+	.global eval
+instr_begin: .int 0
+
+# Stack space
+.align 4
+stack:	.zero 4096
+.align 4
+global_data: .zero 4096
+
+.global __start_custom_data
+__start_custom_data: .int 0;
+.global __stop_custom_data
+__stop_custom_data: .int 0;
+
+	.text
+
+	.macro FIX_BOX dst
+	sall 	$1, \dst
+	xorl 	$1, \dst
+	.endm
+
 	.macro FIX_UNB dst
 	xorl 	$1, \dst
 	sarl 	$1, \dst
@@ -123,6 +147,10 @@ std::string disassemble (FILE *f, bytefile *bf) {
 	.endm
   )");
 
+  emit_code(R"(
+	.global main
+	main:
+  )");
   do {
     char x = BYTE,
          h = (x & 0xF0) >> 4,
@@ -488,9 +516,6 @@ int main (int argc, const char* argv[]) {
   std::string code = dump_file (stderr, f);
 
   std::cout << code << std::endl;
-  std::fstream destintation((std::string(argv[1]) + ".s").c_str(), std::ios::out);
-  destintation << code << std::endl;
-  destintation.close();
 
   delete f->global_ptr;
   delete f->buffer;
