@@ -5,6 +5,8 @@
 # include <cerrno>
 # include <string>
 # include <sstream>
+# include <fstream>
+# include <iostream>
 
 extern "C" char* sexp_string_buffer;
 
@@ -71,7 +73,7 @@ bytefile* read_file (const char *fname) {
 }
 
 /* Disassembles the bytecode pool */
-void disassemble (FILE *f, bytefile *bf) {
+std::string disassemble (FILE *f, bytefile *bf) {
 
 # define INT    (ip += sizeof (int), *(int*)(ip - sizeof (int)))
 # define BYTE   *ip++
@@ -401,10 +403,11 @@ void disassemble (FILE *f, bytefile *bf) {
   }
   while (1);
  stop: std::fprintf (f, "<end>\n");
+ return ss.str();
 }
 
 /* Dumps the contents of the file */
-void dump_file (FILE *f, bytefile *bf) {
+std::string dump_file (FILE *f, bytefile *bf) {
   int i;
 
   std::fprintf (f, "String table size       : %d\n", bf->stringtab_size);
@@ -416,12 +419,16 @@ void dump_file (FILE *f, bytefile *bf) {
     std::fprintf (f, "   0x%.8x: %s\n", get_public_offset (bf, i), get_public_name (bf, i));
 
   std::fprintf (f, "Code:\n");
-  disassemble (f, bf);
+  return disassemble (f, bf);
 }
 
 int main (int argc, const char* argv[]) {
   bytefile *f = read_file (argv[1]);
-  dump_file (stderr, f);
+  std::string code = dump_file (stderr, f);
+
+  std::fstream destintation((std::string(argv[1]) + ".s").c_str(), std::ios::in);
+  destintation << code << std::endl;
+  destintation.close();
 
   delete f->global_ptr;
   delete f->buffer;
