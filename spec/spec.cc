@@ -3,6 +3,8 @@
 # include <cstring>
 # include <cstdio>
 # include <cerrno>
+# include <string>
+# include <sstream>
 
 extern "C" char* sexp_string_buffer;
 
@@ -79,6 +81,34 @@ void disassemble (FILE *f, bytefile *bf) {
   const char *ops [] = {"+", "-", "*", "/", "%", "<", "<=", ">", ">=", "==", "!=", "&&", "!!"};
   const char *pats[] = {"=str", "#string", "#array", "#sexp", "#ref", "#val", "#fun"};
   const char *lds [] = {"LD", "LDA", "ST"};
+  std::stringstream ss;
+
+  auto emit_code = [&ss] (const std::string &s) {
+    ss << s;
+  };
+
+  emit_code(R"(
+	.macro FIX_UNB dst
+	xorl 	$1, \dst
+	sarl 	$1, \dst
+	.endm
+
+	.macro	POP dst
+	subl	$4, %esi
+	movl	(%esi), \dst
+	.endm
+
+	.macro	POP2 dst1 dst2
+	POP	\dst1
+	POP	\dst2
+	.endm
+
+	.macro	PUSH dst
+	movl	\dst, (%esi)
+	addl	$4, %esi
+	.endm
+  )");
+
   do {
     char x = BYTE,
          h = (x & 0xF0) >> 4,
@@ -92,7 +122,68 @@ void disassemble (FILE *f, bytefile *bf) {
 
     /* BINOP */
     case 0:
-      std::fprintf (f, "BINOP\t%s", ops[l-1]);
+      emit_code(R"(
+	POP2 	%eax %ebx
+	FIX_UNB %eax
+	FIX_UNB %ebx
+  )");
+      switch (l) {
+        case 0:
+        emit_code(R"(
+	addl	%eax, %ebx
+	FIX_BOX %ebx
+	PUSH	%ebx
+        )");
+        break;
+        case 1:
+        emit_code(R"(
+	subl	%eax, %ebx
+	FIX_BOX %ebx
+	PUSH	%ebx
+        )");
+        break;
+        case 2: // mul
+        emit_code(R"(
+	imul	%ebx
+	FIX_BOX %eax
+	PUSH	%eax
+        )");
+        break;
+        case 3: // div
+        emit_code(R"(
+	cltd
+	idiv	%ebx
+	FIX_BOX %eax
+	PUSH	%eax
+        )");
+        break;
+        case 4: // mod
+        emit_code(R"(
+	cltd
+	idiv	%ebx
+	FIX_BOX %edx
+	PUSH	%edx
+        )");
+        break;
+        case 5: // eq
+        emit_code(R"(
+	xorl	%edx, %edx
+	cmpl	%eax, %ebx
+	seteb	%dl
+	FIX_BOX %edx
+	PUSH 	%edx
+        )");
+        break;
+        case 6: // neq
+        emit_code(R"(
+	xorl	%edx, %edx
+	cmpl	%eax, %ebx
+	setneb	%dl
+	FIX_BOX %edx
+	PUSH 	%edx
+        )");
+        break;
+      }
       break;
 
     case 1:
