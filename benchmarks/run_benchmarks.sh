@@ -12,7 +12,8 @@ for file in *.lama; do
         /usr/bin/time --format "\treal: %E" taskset -c 0 ./../byterun/byterun ${file%.*}.bc
         # execute spec version:
         echo "* ${file%} spec:"
-        # /usr/bin/time --format "\treal: %E" taskset -c 0 ../spec/spec ${file%.}.bc
+        # TODO: build ${file%.}.bc
+        # TODO: run ${file%.}.s
         echo "-----------------------------------"
     fi
 done
