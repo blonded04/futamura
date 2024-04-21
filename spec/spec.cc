@@ -150,6 +150,10 @@ __stop_custom_data: .int 0;
   emit_code(R"(
 	.global main
 	main:
+  movl $stack, %esi
+  call Label_0
+  xorl %eax, %eax
+  ret
   )");
   do {
     char x = BYTE,
@@ -170,15 +174,18 @@ __stop_custom_data: .int 0;
 	FIX_UNB %eax
 	FIX_UNB %ebx
   )");
+      l--;
       switch (l) {
         case 0:
         emit_code(R"(
 	addl	%eax, %ebx
+	movl	%ebx, %eax
         )");
         break;
         case 1:
         emit_code(R"(
 	subl	%eax, %ebx
+	movl	%ebx, %eax
         )");
         break;
         case 2: // mul
@@ -294,7 +301,7 @@ __stop_custom_data: .int 0;
         break;
       }
       case  1:
-      ss << " movl $" << STRING << R"( %eax)" << "\n" <<
+      ss << " movl $" << STRING << R"(, %eax)" << "\n" <<
 R"(
 	pushl   %eax
 	call	Bstring
@@ -305,12 +312,12 @@ R"(
 
       case  2:
         cur_offset = get_cur_offset();
-      ss << " movl $" << STRING << R"( %eax)" << "\n" <<
+      ss << " movl $" << STRING << R"(, %eax)" << "\n" <<
 R"(
 	pushl   %eax
 	call	LtagHash
 	addl	$4, %esp
-)" << " movl " << INT << R"( %ecx)" << "\n" <<
+)" << " movl " << INT << R"(, %ecx)" << "\n" <<
 R"(
   movl	%ecx, %edx
 	pushl	%eax
@@ -337,6 +344,7 @@ sexp_push_loop_end)" << cur_offset << R"(:
 
       case  3:
         std::fprintf (f, "STI");
+        // TODO: find
         break;
 
       case  4:
@@ -574,26 +582,15 @@ R"(
         break;
 
       case  8:
-        cur_offset = get_cur_offset();
-        ss << " movl $" << INT << R"(, %ecx)" << "\n" <<
-R"(
-	movl	%ecx, %edx
-	testl	%edx, %edx
-	jz 		array_push_loop_end)" << cur_offset << R"(
-array_push_loop_begin)" << cur_offset << R"(:
-	POP		%ebx
-	pushl	%ebx
-	decl	%edx
-	jnz		array_push_loop_begin)" << cur_offset << R"(
-array_push_loop_end)" << cur_offset << R"(:
-	FIX_BOX	%ecx
-	pushl 	%ecx
-	call	Barray
-	popl	%ecx
-	FIX_UNB	%ecx
-	lea (%esp, %ecx, 4), %esp
-	PUSH	%eax
-)" << "\n";
+      cur_offset = get_cur_offset();
+      label = gen_label(INT);
+        ss << " movl " << INT << R"( %ecx
+	POP	%eax
+	FIX_UNB	%eax
+	testl	%eax, %eax
+	jnz	not_go)"  << cur_offset << "\n" <<
+"  jmp "        << label << "\n" <<
+"  not_go" << cur_offset <<":\n";
         break;
 
       case  9:
@@ -649,36 +646,26 @@ bc_read:
         break;
 
       case 4:
-      cur_offset = get_cur_offset();
-      label = gen_label(INT);
-        ss << " movl " << INT << R"( %ecx
-	POP	%eax
-	FIX_UNB	%eax
-	testl	%eax, %eax
-	jnz	not_go)"  << cur_offset << "\n" <<
-"  jmp "        << label << "\n" <<
-"  not_go" << cur_offset <<":\n";
-        break;
-
-      case  1:
-      cur_offset = get_cur_offset();
-      label = gen_label(INT);
-        ss << " movl " << INT << R"( %ecx
-	POP	%eax
-	FIX_UNB	%eax
-	testl	%eax, %eax
-	jz	not_go)"  << cur_offset << "\n" <<
-"  jmp "        << label   << "\n" <<
-"  not_go" << cur_offset <<":\n";
-        break;
-
-      case  2:
+        cur_offset = get_cur_offset();
         ss << " movl " << INT << R"( %ecx)" << "\n" <<
-              " movl " << INT << R"( %edx)" << "\n" <<
-R"(pushl %ebp
-	movl %esp, %ebp
-	lea (,%edx,4), %edx
-	subl %edx, %esp)" << "\n";
+R"(
+  movl  %ecx, %edx
+  testl  %edx, %edx
+  jz     array_push_loop_end)" << cur_offset << R"(
+array_push_loop_begin)" << cur_offset << R"(:
+  POP    %ebx
+  pushl  %ebx
+  decl  %edx
+  jnz    array_push_loop_begin)" << cur_offset << R"(
+array_push_loop_end)" << cur_offset << R"(:
+  FIX_BOX  %ecx
+  pushl   %ecx
+  call  Barray
+  popl  %ecx
+  FIX_UNB  %ecx
+  lea (%esp, %ecx, 4), %esp
+  PUSH  %eax
+)" << "\n";
         break;
       }
     }
