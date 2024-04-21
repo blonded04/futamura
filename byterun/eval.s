@@ -328,7 +328,7 @@ sexp_push_loop_end:
 	/* get back number of args and pop them */
 	popl	%ecx
 	FIX_UNB	%ecx
-	addl 	%ecx, %esp
+	lea (%esp, %ecx, 4), %esp
 	PUSH	%eax
 	NEXT_ITER
 
@@ -468,7 +468,7 @@ array_push_loop_end:
 	call	Barray
 	popl	%ecx
 	FIX_UNB	%ecx
-	addl 	%ecx, %esp
+	lea (%esp, %ecx, 4), %esp
 	PUSH	%eax
 	NEXT_ITER
 
@@ -531,6 +531,7 @@ bc_call:
 
 	negl %ecx
 	lea (%esi, %ecx, 4), %eax
+#	pushl %eax
 	pushl %ebp
 	movl %esp, %ebp
 for:
@@ -548,6 +549,7 @@ after:
 
 	movl %ebp, %esp
 	popl %ebp
+#	popl %esi
 
 	popl %edi
 	popl %edx
