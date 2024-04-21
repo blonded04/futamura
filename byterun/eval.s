@@ -117,7 +117,7 @@ binops:	.int 0,b_add,b_sub,b_mul,b_div,b_mod,b_lt,b_le,b_gt,b_ge,b_eq,b_neq,b_an
 
 trivial:
 	SWITCH %al trivials
-trivials: .int bc_const,0,bc_sexp,bc_sti,bc_sta,bc_jmp,bc_end,0,bc_drop,bc_dup,0,bc_elem
+trivials: .int bc_const,bc_string,bc_sexp,bc_sti,bc_sta,bc_jmp,bc_end,0,bc_drop,bc_dup,0,bc_elem
 
 st:
 	SWITCH %al sts
@@ -139,7 +139,7 @@ cond_jumps: .int bc_cjmpz,bc_cjmpnz,bc_begin,0,0,0,bc_call,bc_tag,bc_array,bc_fa
 
 builtin:
 	SWITCH %al builtins
-builtins: .int bc_read,bc_write,0,0,bc_array
+builtins: .int bc_read,bc_write,bc_length,0,bc_array
 
 b_add:	POP2 	%eax %ebx
 	FIX_UNB %eax
@@ -386,6 +386,7 @@ bc_ld_a:
 	WORD %ecx
 	/*  Maybe it should be 8, not 4 (resolve on merging vs Call)  */
 	movl	8(%ebp, %ecx, 4), %eax
+	PRINT_REG eax_fmt %eax
 	PUSH	%eax
 	NEXT_ITER
 
@@ -481,6 +482,26 @@ array_pop_loop_begin:
 	decl	%edx
 	jnz		array_pop_loop_begin
 array_pop_loop_end:
+	PUSH	%eax
+	NEXT_ITER
+
+bc_length:
+	POP		%ebx
+	pushl	%ebx
+	call	Llength
+	popl	%ebx
+	PUSH	%eax
+	NEXT_ITER
+	
+bc_string:
+    WORD	%eax
+#	PRINT_REG eax_fmt	%eax	
+	addl	sexp_string_buffer, %eax
+	pushl   %eax
+#	PRINT_REG eax_fmt	%eax
+#	call	puts
+	call	Bstring
+	add		$4, %esp
 	PUSH	%eax
 	NEXT_ITER
 
