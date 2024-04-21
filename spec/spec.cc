@@ -87,6 +87,12 @@ void disassemble (FILE *f, bytefile *bf) {
     ss << s;
   };
 
+  auto gen_label = [] (int offset) {
+    std::stringstream meow;
+    meow << "Label_" << std::hex << offset;
+    return meow.str();
+  };
+
   emit_code(R"(
 	.macro FIX_UNB dst
 	xorl 	$1, \dst
@@ -115,6 +121,7 @@ void disassemble (FILE *f, bytefile *bf) {
          l = x & 0x0F;
 
     std::fprintf (f, "0x%.8x:\t%.2x %.2x\t", ip-bf->code_ptr-1, h, l);
+    emit_code(gen_label(ip - bf->code_ptr - 1) + ":\n");
 
     switch (h) {
     case 15:
