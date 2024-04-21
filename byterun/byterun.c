@@ -297,6 +297,7 @@ void dump_file (FILE *f, bytefile *bf) {
 }
 
 extern void eval (void*);
+void __gc_init(void);
 
 int main (int argc, char* argv[]) {
   __gc_init();
