@@ -1,0 +1,3 @@
+var x = Nil;
+
+write (length (x))

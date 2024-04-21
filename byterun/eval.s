@@ -99,8 +99,8 @@ entry_point:
 	shrb 	$4,%ah
 
 	subl instr_begin, %edx
-	PRINT_REG edi_fmt %edx
-	PRINT_REG eax_fmt %eax
+#	PRINT_REG edi_fmt %edx
+#	PRINT_REG eax_fmt %eax
 #	PRINT_REG esp_fmt %esp
 #	PRINT_REG ebp_fmt %ebp
 
@@ -305,7 +305,6 @@ bc_sexp:
 	addl	sexp_string_buffer, %eax
 	pushl   %eax
 	call	LtagHash
-	FIX_BOX	%eax
 	addl	$4, %esp
 
 	/* push hash and args*/
@@ -313,6 +312,8 @@ bc_sexp:
 	WORD 	%ecx
 	movl	%ecx, %edx
 	pushl	%eax
+	testl %edx, %edx
+	jz sexp_push_loop_end
 sexp_push_loop_begin:
 	POP		%ebx
 	pushl	%ebx
@@ -327,12 +328,7 @@ sexp_push_loop_end:
 	/* get back number of args and pop them */
 	popl	%ecx
 	FIX_UNB	%ecx
-	movl	%ecx, %edx
-sexp_pop_loop_begin:
-	popl	%ebx
-	decl	%edx
-	jnz		sexp_pop_loop_begin
-sexp_pop_loop_end:
+	addl 	%ecx, %esp
 	PUSH	%eax
 	NEXT_ITER
 
@@ -341,7 +337,6 @@ bc_tag:
 	addl	sexp_string_buffer, %eax
 	pushl   %eax
 	call	LtagHash
-	FIX_BOX	%eax
 	addl	$4, %esp
 	WORD 	%ecx
 	FIX_BOX	%ecx
@@ -386,7 +381,6 @@ bc_ld_a:
 	WORD %ecx
 	/*  Maybe it should be 8, not 4 (resolve on merging vs Call)  */
 	movl	8(%ebp, %ecx, 4), %eax
-	PRINT_REG eax_fmt %eax
 	PUSH	%eax
 	NEXT_ITER
 
@@ -461,7 +455,7 @@ bc_jmp:
 bc_array:
 	WORD 	%ecx
 	movl	%ecx, %edx
-	test	%edx, %edx
+	testl	%edx, %edx
 	jz 		array_push_loop_end
 array_push_loop_begin:
 	POP		%ebx
@@ -474,14 +468,7 @@ array_push_loop_end:
 	call	Barray
 	popl	%ecx
 	FIX_UNB	%ecx
-	movl	%ecx, %edx
-	test	%edx, %edx
-	jz 		array_pop_loop_end
-array_pop_loop_begin:
-	popl	%ebx
-	decl	%edx
-	jnz		array_pop_loop_begin
-array_pop_loop_end:
+	addl 	%ecx, %esp
 	PUSH	%eax
 	NEXT_ITER
 
@@ -492,14 +479,11 @@ bc_length:
 	popl	%ebx
 	PUSH	%eax
 	NEXT_ITER
-	
+
 bc_string:
     WORD	%eax
-#	PRINT_REG eax_fmt	%eax	
 	addl	sexp_string_buffer, %eax
 	pushl   %eax
-#	PRINT_REG eax_fmt	%eax
-#	call	puts
 	call	Bstring
 	add		$4, %esp
 	PUSH	%eax
@@ -508,10 +492,8 @@ bc_string:
 bc_elem:
 # store arguments {
 	POP		%ebx
-	PRINT_REG ebx_fmt %ebx
 	pushl	%ebx
 	POP		%ebx
-	PRINT_REG ebx_fmt %ebx
 	pushl	%ebx
 # }
 	call	Belem
