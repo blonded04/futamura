@@ -10,9 +10,9 @@ for file in *.lama; do
         lamac -b "${file}"
         echo "* ${file%} byterun:"
         /usr/bin/time --format "\treal: %E" taskset -c 0 ./../byterun/byterun ${file%.*}.bc
-        # # execute spec version:
-        # # TODO: add spec version here!!!
-        # echo "${file%} spec:"
-        # /usr/bin/time --format "\treal: %E" taskset -c 0 ../spec/spec ${file%}.bc
+        # execute spec version:
+        echo "* ${file%} spec:"
+        # /usr/bin/time --format "\treal: %E" taskset -c 0 ../spec/spec ${file%.}.bc
+        echo "-----------------------------------"
     fi
 done
