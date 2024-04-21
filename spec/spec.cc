@@ -294,12 +294,45 @@ __stop_custom_data: .int 0;
         break;
       }
       case  1:
-        std::fprintf (f, "STRING\t%s", STRING);
+      ss << " movl $" << STRING << R"( %eax)" << "\n" <<
+R"(
+	pushl   %eax
+	call	Bstring
+	add		$4, %esp
+	PUSH	%eax
+)";
         break;
 
       case  2:
-        std::fprintf (f, "SEXP\t%s ", STRING);
-        std::fprintf (f, "%d", INT);
+        cur_offset = get_cur_offset();
+      ss << " movl $" << STRING << R"( %eax)" << "\n" <<
+R"(
+	pushl   %eax
+	call	LtagHash
+	addl	$4, %esp
+)" << " movl " << INT << R"( %ecx)" << "\n" <<
+R"(
+  movl	%ecx, %edx
+	pushl	%eax
+	testl %edx, %edx
+	jz sexp_push_loop_end)" << cur_offset << R"(
+sexp_push_loop_begin)" << cur_offset << R"(:
+	POP		%ebx
+	pushl	%ebx
+	decl	%edx
+	jnz		sexp_push_loop_begin)" << cur_offset << R"(
+sexp_push_loop_end)" << cur_offset << R"(:
+    /* push (n + 1) */
+	incl	%ecx
+	FIX_BOX	%ecx
+	pushl 	%ecx
+	call	Bsexp
+	/* get back number of args and pop them */
+	popl	%ecx
+	FIX_UNB	%ecx
+	lea (%esp, %ecx, 4), %esp
+	PUSH	%eax
+)";
         break;
 
       case  3:
@@ -443,36 +476,16 @@ __stop_custom_data: .int 0;
     case 5:
       switch (l) {
       case  0:
-      cur_offset = get_cur_offset();
-      label = gen_label(INT);
-        ss << " movl " << INT << R"( %ecx
-	POP	%eax
-	FIX_UNB	%eax
-	testl	%eax, %eax
-	jnz	not_go)"  << cur_offset << "\n" <<
-"  jmp "        << label << "\n" <<
-"  not_go" << cur_offset <<":\n";
-        break;
-
-      case  1:
-      cur_offset = get_cur_offset();
-      label = gen_label(INT);
-        ss << " movl " << INT << R"( %ecx
-	POP	%eax
-	FIX_UNB	%eax
-	testl	%eax, %eax
-	jz	not_go)"  << cur_offset << "\n" <<
-"  jmp "        << label   << "\n" <<
-"  not_go" << cur_offset <<":\n";
-        break;
-
-      case  2:
         ss << " movl " << INT << R"( %ecx)" << "\n" <<
-              " movl " << INT << R"( %edx)" << "\n" <<
-R"(pushl %ebp
-	movl %esp, %ebp
-	lea (,%edx,4), %edx
-	subl %edx, %esp)" << "\n";
+        << R"(
+  FIX_BOX	%ecx
+	POP 	%edx
+	pushl	%ecx
+	pushl 	%edx
+	call 	Barray_patt
+	PUSH	%eax
+	addl	$8, %esp
+)";
         break;
 
       case  3:
@@ -583,7 +596,11 @@ array_push_loop_end)" << cur_offset << R"(:
     case 7: {
       switch (l) {
       case 0:
-        std::fprintf (f, "CALL\tLread");
+        ss << R"(
+bc_read:
+	call	Lread
+	PUSH	%eax
+)";
         break;
 
       case 1:
@@ -598,15 +615,50 @@ array_push_loop_end)" << cur_offset << R"(:
         break;
 
       case 2:
-        std::fprintf (f, "CALL\tLlength");
+      ss << R"(
+	POP		%ebx
+	pushl	%ebx
+	call	Llength
+	popl	%ebx
+	PUSH	%eax
+)";
         break;
 
       case 3:
-        std::fprintf (f, "CALL\tLstring");
+        throw std::runtime_error("Unreachable code\n");
         break;
 
       case 4:
-        std::fprintf (f, "CALL\tBarray\t%d", INT);
+      cur_offset = get_cur_offset();
+      label = gen_label(INT);
+        ss << " movl " << INT << R"( %ecx
+	POP	%eax
+	FIX_UNB	%eax
+	testl	%eax, %eax
+	jnz	not_go)"  << cur_offset << "\n" <<
+"  jmp "        << label << "\n" <<
+"  not_go" << cur_offset <<":\n";
+        break;
+
+      case  1:
+      cur_offset = get_cur_offset();
+      label = gen_label(INT);
+        ss << " movl " << INT << R"( %ecx
+	POP	%eax
+	FIX_UNB	%eax
+	testl	%eax, %eax
+	jz	not_go)"  << cur_offset << "\n" <<
+"  jmp "        << label   << "\n" <<
+"  not_go" << cur_offset <<":\n";
+        break;
+
+      case  2:
+        ss << " movl " << INT << R"( %ecx)" << "\n" <<
+              " movl " << INT << R"( %edx)" << "\n" <<
+R"(pushl %ebp
+	movl %esp, %ebp
+	lea (,%edx,4), %edx
+	subl %edx, %esp)" << "\n";
         break;
       }
     }
