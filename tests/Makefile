@@ -17,4 +17,4 @@ $(TESTS): %: %.bc
 		./$@ > $@.actual && diff $@.actual $@.expected
 
 clean:
-	$(RM) *.actual *.bc
+	$(RM) *.actual *.actual_inter *.bc *.S *.o
