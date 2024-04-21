@@ -133,7 +133,6 @@ lds: .int bc_ld_g,bc_ld_l,bc_ld_a
 
 cond_jump:
 	SWITCH %al cond_jumps
-# TODO: is bc_call ok here?
 cond_jumps: .int bc_cjmpz,bc_cjmpnz,bc_begin,0,0,0,bc_call,bc_tag,bc_pat_array,bc_fail,bc_line
 
 
@@ -390,7 +389,6 @@ bc_ld_l:
 
 bc_ld_a:
 	WORD %ecx
-	/*  Maybe it should be 8, not 4 (resolve on merging vs Call)  */
 	movl	8(%ebp, %ecx, 4), %eax
 	PUSH	%eax
 	NEXT_ITER
@@ -410,7 +408,6 @@ bc_lda_l:
 
 bc_lda_a:
 	WORD %ecx
-	/*  Maybe it should be 8, not 4 (resolve on merging vs Call)  */
 	lea	8(%ebp, %ecx, 4), %eax
 	PUSH	%eax
 	NEXT_ITER
@@ -431,7 +428,6 @@ bc_st_l:
 bc_st_a:
 	WORD %ecx
 	movl 	-4(%esi), %eax
-	/*  Maybe it should be 8, not 4 (resolve on merging vs Call)  */
 	movl	%eax, 8(%ebp, %ecx, 4)
 	NEXT_ITER
 
@@ -529,7 +525,6 @@ bc_read:
 	PUSH	%eax
 	NEXT_ITER
 
-# TODO: need to differ builtins calls and user-defined function-calls
 bc_call:
 	WORD %edx /* label */
 	WORD %ecx /* args number */
@@ -542,7 +537,6 @@ bc_call:
 
 	negl %ecx
 	lea (%esi, %ecx, 4), %eax
-#	pushl %eax
 	pushl %ebp
 	movl %esp, %ebp
 for:
@@ -560,7 +554,6 @@ after:
 
 	movl %ebp, %esp
 	popl %ebp
-#	popl %esi
 
 	popl %edi
 	popl %edx
