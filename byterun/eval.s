@@ -134,7 +134,7 @@ lds: .int bc_ld_g,bc_ld_l,bc_ld_a
 cond_jump:
 	SWITCH %al cond_jumps
 # TODO: is bc_call ok here?
-cond_jumps: .int bc_cjmpz,bc_cjmpnz,bc_begin,0,0,0,bc_call,bc_tag,bc_array,bc_fail,bc_line
+cond_jumps: .int bc_cjmpz,bc_cjmpnz,bc_begin,0,0,0,bc_call,bc_tag,bc_pat_array,bc_fail,bc_line
 
 
 builtin:
@@ -347,6 +347,17 @@ bc_tag:
 	call 	Btag
 	PUSH	%eax
 	addl	$12, %esp
+	NEXT_ITER
+
+bc_pat_array:
+	WORD 	%ecx
+	FIX_BOX	%ecx
+	POP 	%edx
+	pushl	%ecx
+	pushl 	%edx
+	call 	Barray_patt
+	PUSH	%eax
+	addl	$8, %esp
 	NEXT_ITER
 
 bc_const:
