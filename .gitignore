@@ -16,6 +16,10 @@
 # Test log files
 *.log
 
+# OCaml build files
+*.cmi
+*.cmo
+
 # Prerequisites
 *.d
 
