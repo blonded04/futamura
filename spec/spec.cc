@@ -442,7 +442,8 @@ int main (int argc, const char* argv[]) {
   bytefile *f = read_file (argv[1]);
   std::string code = dump_file (stderr, f);
 
-  std::fstream destintation((std::string(argv[1]) + ".s").c_str(), std::ios::in);
+  std::cout << code << std::endl;
+  std::fstream destintation((std::string(argv[1]) + ".s").c_str(), std::ios::out);
   destintation << code << std::endl;
   destintation.close();
 
