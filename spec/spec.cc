@@ -312,14 +312,84 @@ std::string disassemble (FILE *f, bytefile *bf) {
       break;
 
     case 2:
-    case 3:
-    case 4:
-      std::fprintf (f, "%s\t", lds[h-2]);
       switch (l) {
-      case 0: std::fprintf (f, "G(%d)", INT); break;
-      case 1: std::fprintf (f, "L(%d)", INT); break;
-      case 2: std::fprintf (f, "A(%d)", INT); break;
-      case 3: std::fprintf (f, "C(%d)", INT); break;
+      case 0: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+                 	+ "\tmovl	global_data(, %ecx, 4), %eax"
+                  + "PUSH %eax"); 
+        break;
+      } 
+      
+      case 1: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+                  + "\tnegl %ecx\n"
+                 	+ "\tmovl	-4(%ebp, %ecx, 4), %eax\n"
+                  + "PUSH %eax\n"); 
+        break;
+      } 
+      case 2: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+                 	+ "\tmovl	8(%ebp, %ecx, 4), %eax\n"
+                  + "PUSH %eax\n"); 
+        break;
+      } 
+      }
+      break;
+
+    case 3:
+          switch (l) {
+      case 0: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+                 	+ "\tlea global_data(, %ecx, 4), %eax\n"
+                  + "PUSH %eax"); 
+        break;
+      } 
+      
+      case 1: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") + 
+                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n" 
+                 	+ "\tmovl	%eax, global_data(, %ecx, 4)\n"); 
+        break;
+      } 
+      case 2: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+                 	+ "\tlea	8(%ebp, %ecx, 4), %eax\n"
+                  + "PUSH %eax\n"); 
+        break;
+      } 
+      }
+      break;
+    case 4:
+      switch (l) {
+      case 0: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") + 
+                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n" 
+                 	+ "\tmovl	%eax, global_data(, %ecx, 4)\n"); 
+        break;
+      } 
+      
+      case 1: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") + 
+                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n"
+                  + "\tnegl	%ecx\n" 
+                 	+ "\tmovl	%eax, -4(%ebp, %ecx, 4)\n"); 
+        break;
+      } 
+      case 2: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") + 
+                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n" 
+                 	+ "\tmovl	%eax, 8(%ebp, %ecx, 4)\n"); 
+        break;
+      } 
       }
       break;
 
