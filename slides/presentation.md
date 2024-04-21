@@ -1,9 +1,10 @@
+Пример кода, сгенерированного генерирующим расширением: 
+
 ```
 	.data
 	.global sexp_string_buffer
 scanline: .asciz "something bad happened"
 sexp_string_buffer: .int 0
-
 
 	.global eval
 instr_begin: .int 0
@@ -220,5 +221,33 @@ Label_60:
 	leave
 	retl
 Label_62:
+```
+
+Результаты бенчмарков:
+```
+bash run_benchmarks.sh
+* bench01_sort.lama lamac:
+	real: 0:00.13
+* bench01_sort.lama ASM interpreter:
+	real: 0:01.38
+* bench01_sort.lama C interpreter:
+	real: 0:01.45
+* bench01_sort.lama spec:
+-----------------------------------
+* bench02_fib.lama lamac:
+	real: 0:00.01
+* bench02_fib.lama ASM interpreter:
+	real: 0:00.02
+* bench02_fib.lama C interpreter:
+	real: 0:00.04
+* bench02_fib.lama spec:
+-----------------------------------
+* bench03_substr.lama lamac:
+	real: 0:00.09
+* bench03_substr.lama ASM interpreter:
+	real: 0:00.59
+* bench03_substr.lama C interpreter:
+	real: 0:01.14
+* bench03_substr.lama spec:
 ```
 
