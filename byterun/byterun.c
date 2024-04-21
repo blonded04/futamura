@@ -302,7 +302,7 @@ void __gc_init(void);
 int main (int argc, char* argv[]) {
   __gc_init();
   bytefile *f = read_file (argv[1]);
-  dump_file (stderr, f);
+  // dump_file (stderr, f);
   sexp_string_buffer = f->string_ptr;
   eval (f->code_ptr);
   return 0;
