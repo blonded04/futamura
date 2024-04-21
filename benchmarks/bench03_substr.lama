@@ -22,7 +22,7 @@ fun check_substr (n, s, from, to) {
     res
 }
 
-var n = 300;
+var n = 100;
 var s = generate (n);
 for var i = 0; , i < n,  i := i + 1 do
     for var j = i + 1; , j <= n,  j := j + 1 do

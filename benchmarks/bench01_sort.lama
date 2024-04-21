@@ -28,7 +28,7 @@ fun generate (n) {
   if n then n : generate (n-1) else {} fi
 }
 
-for var i = 0; , i < 300,  i := i + 1 do
-    var l = generate (300);
+for var i = 0; , i < 100,  i := i + 1 do
+    var l = generate (100);
     bubbleSort (l)
 od

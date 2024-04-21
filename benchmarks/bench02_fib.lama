@@ -6,6 +6,6 @@ fun fib (n) {
   fi
 }
 
-for var i = 0; , i <= 34,  i := i + 1 do
+for var i = 0; , i <= 24,  i := i + 1 do
     var x = fib (i);
 od
