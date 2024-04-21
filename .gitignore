@@ -12,6 +12,9 @@
 # GDB history
 **/.gdb_history
 
+# Test log files
+*.log
+
 # Prerequisites
 *.d
 
