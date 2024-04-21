@@ -1,0 +1,31 @@
+fun generate (n) {
+  if n == 0 then
+    {}
+  else  
+    (n % 10) : generate (n - 1)
+  fi
+}
+
+fun check_substr (n, s, from, to) {
+    var res = 0;
+    for var i = 0; , i < n - (to - from) + 1,  i := i + 1 do
+        var boundS = i;
+        var boundT = from;
+        while (boundT != to) && (s[boundS] == s[boundT]) do
+            boundS := boundS + 1;
+            boundT := boundT + 1
+        od;
+        if boundT == to then 
+            res := res + 1
+        fi
+    od;
+    res
+}
+
+var n = 300;
+var s = generate (n);
+for var i = 0; , i < n,  i := i + 1 do
+    for var j = i + 1; , j <= n,  j := j + 1 do
+        check_substr (n, s, i, j)
+    od
+od
