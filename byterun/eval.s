@@ -98,9 +98,9 @@ entry_point:
 	andb    $240,%ah
 	shrb 	$4,%ah
 
-#	subl instr_begin, %edx
-#	PRINT_REG edi_fmt %edx
-#	PRINT_REG eax_fmt %eax
+	subl instr_begin, %edx
+	PRINT_REG edi_fmt %edx
+	PRINT_REG eax_fmt %eax
 #	PRINT_REG esp_fmt %esp
 #	PRINT_REG ebp_fmt %ebp
 
@@ -487,8 +487,10 @@ array_pop_loop_end:
 bc_elem:
 # store arguments {
 	POP		%ebx
+	PRINT_REG ebx_fmt %ebx
 	pushl	%ebx
 	POP		%ebx
+	PRINT_REG ebx_fmt %ebx
 	pushl	%ebx
 # }
 	call	Belem

@@ -14,7 +14,7 @@
 #include <time.h>
 #include <unistd.h>
 
-static const size_t INIT_HEAP_SIZE = MINIMUM_HEAP_CAPACITY;
+static const size_t INIT_HEAP_SIZE = 4096;
 
 #ifdef DEBUG_VERSION
 size_t cur_id = 0;
