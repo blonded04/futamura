@@ -12,8 +12,9 @@ check: $(TESTS)
 $(TESTS): %: %.bc
 	@echo $@
 	lamac -b $@.lama
-	../byterun/byterun $< < $@.input > $@.actual && diff $@.actual $@.expected
-#	../spec/spec $< && gcc -m32 -o $@.o $@.lama.s && ./$@.o > $@.actual2 && diff $@.actual2 $@.expected
+	../byterun/byterun $< < $@.input > $@.actual_inter && diff $@.actual_inter $@.expected
+	../spec/spec $< > $@.S && gcc -m32 -o $@ $@.S ../runtime/runtime.a && \
+		./$@ > $@.actual && diff $@.actual $@.expected
 
 clean:
 	$(RM) *.actual *.bc

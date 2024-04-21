@@ -10,9 +10,6 @@
 
 extern "C" char* sexp_string_buffer;
 
-void *__start_custom_data;
-void *__stop_custom_data;
-
 /* The unpacked representation of bytecode file */
 struct bytefile {
   char *string_ptr;              /* A pointer to the beginning of the string table */
@@ -102,6 +99,33 @@ std::string disassemble (FILE *f, bytefile *bf) {
   };
 
   emit_code(R"(
+	.data
+	.global sexp_string_buffer
+scanline: .asciz "something bad happened"
+sexp_string_buffer: .int 0
+
+
+	.global eval
+instr_begin: .int 0
+
+# Stack space
+.align 4
+stack:	.zero 4096
+.align 4
+global_data: .zero 4096
+
+.global __start_custom_data
+__start_custom_data: .int 0;
+.global __stop_custom_data
+__stop_custom_data: .int 0;
+
+	.text
+
+	.macro FIX_BOX dst
+	sall 	$1, \dst
+	xorl 	$1, \dst
+	.endm
+
 	.macro FIX_UNB dst
 	xorl 	$1, \dst
 	sarl 	$1, \dst
@@ -123,6 +147,10 @@ std::string disassemble (FILE *f, bytefile *bf) {
 	.endm
   )");
 
+  emit_code(R"(
+	.global main
+	main:
+  )");
   do {
     char x = BYTE,
          h = (x & 0xF0) >> 4,
@@ -290,23 +318,39 @@ std::string disassemble (FILE *f, bytefile *bf) {
         break;
 
       case  7:
-        std::fprintf (f, "RET");
+        throw std::runtime_error("Unreachable code");
         break;
 
       case  8:
-        std::fprintf (f, "DROP");
+        ss << R"(
+	POP %eax)" << "\n";
         break;
 
       case  9:
-        std::fprintf (f, "DUP");
+        ss << R"(
+	POP 	%eax
+	PUSH	%eax
+	PUSH	%eax)" << "\n";
         break;
 
       case 10:
-        std::fprintf (f, "SWAP");
+        throw std::runtime_error("Unreachable code");
         break;
 
       case 11:
-        std::fprintf (f, "ELEM");
+        ss << R"(
+# store arguments {
+	POP		%ebx
+	pushl	%ebx
+	POP		%ebx
+	pushl	%ebx
+# }
+	call	Belem
+# pop arguments {
+	popl	%ebx
+	popl	%ebx
+# }
+	PUSH 	%eax)" << "\n";
         break;
       }
       break;
@@ -442,7 +486,7 @@ R"(pushl %ebp
 
       case  6:
         cur_offset = get_cur_offset();
-        label = INT;
+        label = gen_label(INT);
         ss << " movl " << INT << R"( %ecx)" << "\n" <<
 R"(
   pushl %eax
@@ -474,21 +518,57 @@ after)" << cur_offset << R"(:
         break;
 
       case  7:
-        std::fprintf (f, "TAG\t%s ", STRING);
-        std::fprintf (f, "%d", INT);
+        ss << " movl $" << STRING << R"( %eax)" << "\n" <<
+R"(
+  pushl   %eax
+  call	LtagHash
+	addl	$4, %esp
+)" <<
+              " movl " << INT << R"( %ecx)" << "\n" <<
+  R"(
+  FIX_BOX	%ecx
+	POP 	%edx
+	pushl	%ecx
+	pushl	%eax
+	pushl 	%edx
+	call 	Btag
+	PUSH	%eax
+	addl	$12, %esp
+  )";
         break;
 
       case  8:
-        std::fprintf (f, "ARRAY\t%d", INT);
+        cur_offset = get_cur_offset();
+        ss << " movl " << INT << R"( %ecx)" << "\n" <<
+R"(
+	movl	%ecx, %edx
+	testl	%edx, %edx
+	jz 		array_push_loop_end)" << cur_offset << R"(
+array_push_loop_begin)" << cur_offset << R"(:
+	POP		%ebx
+	pushl	%ebx
+	decl	%edx
+	jnz		array_push_loop_begin)" << cur_offset << R"(
+array_push_loop_end)" << cur_offset << R"(:
+	FIX_BOX	%ecx
+	pushl 	%ecx
+	call	Barray
+	popl	%ecx
+	FIX_UNB	%ecx
+	lea (%esp, %ecx, 4), %esp
+	PUSH	%eax
+)" << "\n";
         break;
 
       case  9:
-        std::fprintf (f, "FAIL\t%d", INT);
-        std::fprintf (f, "%d", INT);
+      ss << R"(
+	pushl	$scanline
+	call	failure
+)";
         break;
 
       case 10:
-        std::fprintf (f, "LINE\t%d", INT);
+        ss << " movl " << INT << R"( %ecx)" << "\n";
         break;
       }
       break;
@@ -558,9 +638,6 @@ int main (int argc, const char* argv[]) {
   std::string code = dump_file (stderr, f);
 
   std::cout << code << std::endl;
-  std::fstream destintation((std::string(argv[1]) + ".s").c_str(), std::ios::out);
-  destintation << code << std::endl;
-  destintation.close();
 
   delete f->global_ptr;
   delete f->buffer;
