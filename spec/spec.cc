@@ -138,57 +138,95 @@ void disassemble (FILE *f, bytefile *bf) {
         case 0:
         emit_code(R"(
 	addl	%eax, %ebx
-	FIX_BOX %ebx
-	PUSH	%ebx
         )");
-        break;
         case 1:
         emit_code(R"(
 	subl	%eax, %ebx
-	FIX_BOX %ebx
-	PUSH	%ebx
         )");
-        break;
         case 2: // mul
         emit_code(R"(
 	imul	%ebx
+        )");
+        case 11: // and
+        emit_code(R"(
+	andl	%ebx, %eax
+        )");
+        case 12: // or
+        emit_code(R"(
+	orl		%ebx, %eax
+        )");
+        case 0: // add
+        case 1: // sub
+        case 2: // mul
+        case 11: // and
+        case 12: // or
+        emit_code(R"(
 	FIX_BOX %eax
 	PUSH	%eax
         )");
         break;
         case 3: // div
+        case 4: // mod
         emit_code(R"(
 	cltd
 	idiv	%ebx
+        )");
+        case 3: // div
+        emit_code(R"(
 	FIX_BOX %eax
 	PUSH	%eax
         )");
         break;
         case 4: // mod
         emit_code(R"(
-	cltd
-	idiv	%ebx
 	FIX_BOX %edx
 	PUSH	%edx
         )");
         break;
         case 5: // eq
+        case 6: // neq
+        case 7: // lt
+        case 8: // le
+        case 9: // gt
+        case 10: // ge
         emit_code(R"(
 	xorl	%edx, %edx
 	cmpl	%eax, %ebx
+  )");"
+        case 5: // eq
+        emit_code(R"(
 	seteb	%dl
-	FIX_BOX %edx
-	PUSH 	%edx
-        )");
-        break;
+        )");"
         case 6: // neq
         emit_code(R"(
-	xorl	%edx, %edx
-	cmpl	%eax, %ebx
 	setneb	%dl
+        )");"
+        case 7: // lt
+        emit_code(R"(
+	setlb	%dl
+        )");"
+        case 8: // le
+        emit_code(R"(
+	setleb	%dl
+        )");"
+        case 9: // gt
+        emit_code(R"(
+	setgb	%dl
+        )");"
+        case 10: // ge
+        emit_code(R"(
+	setgeb	%dl
+        )");"
+        case 5: // eq
+        case 6: // neq
+        case 7: // lt
+        case 8: // le
+        case 9: // gt
+        case 10: // ge
+        emit_code(R"(
 	FIX_BOX %edx
-	PUSH 	%edx
-        )");
+	PUSH	%edx
+        )");"
         break;
       }
       break;
@@ -333,6 +371,14 @@ void disassemble (FILE *f, bytefile *bf) {
 
       case 1:
         std::fprintf (f, "CALL\tLwrite");
+        emit_code(R"(
+	POP		%ebx
+	pushl	%ebx
+	call	Lwrite
+	popl	%ebx
+	FIX_BOX	%eax
+	PUSH	%eax
+        )");
         break;
 
       case 2:
