@@ -169,12 +169,20 @@ __stop_custom_data: .int 0;
 
     /* BINOP */
     case 0:
-      emit_code(R"(
-	POP2 	%eax %ebx
-	FIX_UNB %eax
-	FIX_UNB %ebx
-  )");
       l--;
+      if (l == 3 || l == 4) {
+        emit_code(R"(
+    POP2 	%ebx %eax
+    FIX_UNB %eax
+    FIX_UNB %ebx
+    )");
+      } else {
+        emit_code(R"(
+    POP2 	%eax %ebx
+    FIX_UNB %eax
+    FIX_UNB %ebx
+    )");
+      }
       switch (l) {
         case 0:
         emit_code(R"(
@@ -317,7 +325,7 @@ R"(
 	pushl   %eax
 	call	LtagHash
 	addl	$4, %esp
-)" << " movl " << INT << R"(, %ecx)" << "\n" <<
+)" << " movl $" << INT << R"(, %ecx)" << "\n" <<
 R"(
   movl	%ecx, %edx
 	pushl	%eax
@@ -404,8 +412,8 @@ sexp_push_loop_end)" << cur_offset << R"(:
       case 0: {
         int ecx = INT;
         emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n")
-                 	+ "\tmovl	global_data(, %ecx, 4), %eax"
-                  + "PUSH %eax");
+                 	+ "\tmovl	global_data(, %ecx, 4), %eax\n"
+                  + "PUSH %eax\n");
         break;
       }
 
@@ -433,7 +441,7 @@ sexp_push_loop_end)" << cur_offset << R"(:
         int ecx = INT;
         emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n")
                  	+ "\tlea global_data(, %ecx, 4), %eax\n"
-                  + "PUSH %eax");
+                  + "PUSH %eax\n");
         break;
       }
 
@@ -614,7 +622,6 @@ R"(
       switch (l) {
       case 0:
         ss << R"(
-bc_read:
 	call	Lread
 	PUSH	%eax
 )";
