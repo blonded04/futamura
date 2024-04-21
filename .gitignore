@@ -63,6 +63,7 @@
 # Test files
 tests/*.actual
 tests/*.actual_inter
+tests/*.S
 
 # Kernel Module Compile Results
 *.mod*
