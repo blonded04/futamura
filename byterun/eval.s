@@ -527,6 +527,7 @@ bc_write:
 	pushl	%ebx
 	call	Lwrite
 	popl	%ebx
+	FIX_BOX	%eax
 	PUSH	%eax
 	NEXT_ITER
 
