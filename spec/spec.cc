@@ -5,11 +5,10 @@
 # include <cerrno>
 # include <string>
 # include <sstream>
+# include <fstream>
+# include <iostream>
 
 extern "C" char* sexp_string_buffer;
-
-void *__start_custom_data;
-void *__stop_custom_data;
 
 /* The unpacked representation of bytecode file */
 struct bytefile {
@@ -71,7 +70,7 @@ bytefile* read_file (const char *fname) {
 }
 
 /* Disassembles the bytecode pool */
-void disassemble (FILE *f, bytefile *bf) {
+std::string disassemble (FILE *f, bytefile *bf) {
 
 # define INT    (ip += sizeof (int), *(int*)(ip - sizeof (int)))
 # define BYTE   *ip++
@@ -82,12 +81,51 @@ void disassemble (FILE *f, bytefile *bf) {
   const char *pats[] = {"=str", "#string", "#array", "#sexp", "#ref", "#val", "#fun"};
   const char *lds [] = {"LD", "LDA", "ST"};
   std::stringstream ss;
+  std::string label = 0;
+  int cur_offset = 0;
+
+  auto get_cur_offset = [&]() -> int {
+    return reinterpret_cast<int>(ip);
+  };
 
   auto emit_code = [&ss] (const std::string &s) {
     ss << s;
   };
 
+  auto gen_label = [] (int offset) {
+    std::stringstream meow;
+    meow << "Label_" << std::hex << offset;
+    return meow.str();
+  };
+
   emit_code(R"(
+	.data
+	.global sexp_string_buffer
+scanline: .asciz "something bad happened"
+sexp_string_buffer: .int 0
+
+
+	.global eval
+instr_begin: .int 0
+
+# Stack space
+.align 4
+stack:	.zero 4096
+.align 4
+global_data: .zero 4096
+
+.global __start_custom_data
+__start_custom_data: .int 0;
+.global __stop_custom_data
+__stop_custom_data: .int 0;
+
+	.text
+
+	.macro FIX_BOX dst
+	sall 	$1, \dst
+	xorl 	$1, \dst
+	.endm
+
 	.macro FIX_UNB dst
 	xorl 	$1, \dst
 	sarl 	$1, \dst
@@ -109,12 +147,17 @@ void disassemble (FILE *f, bytefile *bf) {
 	.endm
   )");
 
+  emit_code(R"(
+	.global main
+	main:
+  )");
   do {
     char x = BYTE,
          h = (x & 0xF0) >> 4,
          l = x & 0x0F;
 
     std::fprintf (f, "0x%.8x:\t%.2x %.2x\t", ip-bf->code_ptr-1, h, l);
+    emit_code(gen_label(ip - bf->code_ptr - 1) + ":\n");
 
     switch (h) {
     case 15:
@@ -131,56 +174,111 @@ void disassemble (FILE *f, bytefile *bf) {
         case 0:
         emit_code(R"(
 	addl	%eax, %ebx
-	FIX_BOX %ebx
-	PUSH	%ebx
         )");
         break;
         case 1:
         emit_code(R"(
 	subl	%eax, %ebx
-	FIX_BOX %ebx
-	PUSH	%ebx
         )");
         break;
         case 2: // mul
         emit_code(R"(
 	imul	%ebx
-	FIX_BOX %eax
-	PUSH	%eax
+        )");
+        break;
+        case 3: // div
+        case 4: // mod
+        emit_code(R"(
+	cltd
+	idiv	%ebx
+        )");
+        break;
+        case 11: // and
+        emit_code(R"(
+	andl	%ebx, %eax
+        )");
+        break;
+        case 12: // or
+        emit_code(R"(
+	orl		%ebx, %eax
+        )");
+        break;
+        case 5: // eq
+        case 6: // neq
+        case 7: // lt
+        case 8: // le
+        case 9: // gt
+        case 10: // ge
+        emit_code(R"(
+	xorl	%edx, %edx
+	cmpl	%eax, %ebx
+        )");
+        break;
+      }
+      switch (l) {
+        case 0: // add
+        case 1: // sub
+        case 2: // mul
+        case 11: // and
+        case 12: // or
+        emit_code(R"(
+  FIX_BOX %eax
+  PUSH	%eax
         )");
         break;
         case 3: // div
         emit_code(R"(
-	cltd
-	idiv	%ebx
 	FIX_BOX %eax
 	PUSH	%eax
         )");
         break;
         case 4: // mod
         emit_code(R"(
-	cltd
-	idiv	%ebx
 	FIX_BOX %edx
 	PUSH	%edx
         )");
         break;
         case 5: // eq
         emit_code(R"(
-	xorl	%edx, %edx
-	cmpl	%eax, %ebx
 	seteb	%dl
-	FIX_BOX %edx
-	PUSH 	%edx
         )");
         break;
         case 6: // neq
         emit_code(R"(
-	xorl	%edx, %edx
-	cmpl	%eax, %ebx
 	setneb	%dl
+        )");
+        break;
+        case 7: // lt
+        emit_code(R"(
+	setlb	%dl
+        )");
+        break;
+        case 8: // le
+        emit_code(R"(
+	setleb	%dl
+        )");
+        break;
+        case 9: // gt
+        emit_code(R"(
+	setgb	%dl
+        )");
+        break;
+        case 10: // ge
+        emit_code(R"(
+	setgeb	%dl
+        )");
+        break;
+      }
+      switch (l) {
+        case 5: // eq
+        case 6: // neq
+        case 7: // lt
+        case 8: // le
+        case 9: // gt
+        case 10: // ge
+        emit_code(R"(
 	FIX_BOX %edx
-	PUSH 	%edx
+	PUSH	%edx
         )");
         break;
       }
@@ -188,17 +286,53 @@ void disassemble (FILE *f, bytefile *bf) {
 
     case 1:
       switch (l) {
-      case  0:
-        std::fprintf (f, "CONST\t%d", INT);
+      case  0: {
+        int literal = INT;
+        emit_code(std::string("\tmovl $") + std::to_string(literal) + ", %ecx\n"   
+                  + "\tFIX_BOX	%ecx\n"
+                  + "\tPUSH 	%ecx\n");
         break;
-
+      }
       case  1:
-        std::fprintf (f, "STRING\t%s", STRING);
+      ss << " movl $" << STRING << R"( %eax)" << "\n" <<
+R"(
+	pushl   %eax
+	call	Bstring
+	add		$4, %esp
+	PUSH	%eax
+)";
         break;
 
       case  2:
-        std::fprintf (f, "SEXP\t%s ", STRING);
-        std::fprintf (f, "%d", INT);
+        cur_offset = get_cur_offset();
+      ss << " movl $" << STRING << R"( %eax)" << "\n" <<
+R"(
+	pushl   %eax
+	call	LtagHash
+	addl	$4, %esp
+)" << " movl " << INT << R"( %ecx)" << "\n" <<
+R"(
+  movl	%ecx, %edx
+	pushl	%eax
+	testl %edx, %edx
+	jz sexp_push_loop_end)" << cur_offset << R"(
+sexp_push_loop_begin)" << cur_offset << R"(:
+	POP		%ebx
+	pushl	%ebx
+	decl	%edx
+	jnz		sexp_push_loop_begin)" << cur_offset << R"(
+sexp_push_loop_end)" << cur_offset << R"(:
+    /* push (n + 1) */
+	incl	%ecx
+	FIX_BOX	%ecx
+	pushl 	%ecx
+	call	Bsexp
+	/* get back number of args and pop them */
+	popl	%ecx
+	FIX_UNB	%ecx
+	lea (%esp, %ecx, 4), %esp
+	PUSH	%eax
+)";
         break;
 
       case  3:
@@ -210,134 +344,321 @@ void disassemble (FILE *f, bytefile *bf) {
         break;
 
       case  5:
-        std::fprintf (f, "JMP\t0x%.8x", INT);
+        ss << "  jmp " << gen_label(INT) << "\n";
         break;
 
       case  6:
-        std::fprintf (f, "END");
+        ss << R"(
+	leave
+	retl)" << "\n";
         break;
 
       case  7:
-        std::fprintf (f, "RET");
+        throw std::runtime_error("Unreachable code");
         break;
 
       case  8:
-        std::fprintf (f, "DROP");
+        ss << R"(
+	POP %eax)" << "\n";
         break;
 
       case  9:
-        std::fprintf (f, "DUP");
+        ss << R"(
+	POP 	%eax
+	PUSH	%eax
+	PUSH	%eax)" << "\n";
         break;
 
       case 10:
-        std::fprintf (f, "SWAP");
+        throw std::runtime_error("Unreachable code");
         break;
 
       case 11:
-        std::fprintf (f, "ELEM");
+        ss << R"(
+# store arguments {
+	POP		%ebx
+	pushl	%ebx
+	POP		%ebx
+	pushl	%ebx
+# }
+	call	Belem
+# pop arguments {
+	popl	%ebx
+	popl	%ebx
+# }
+	PUSH 	%eax)" << "\n";
         break;
       }
       break;
 
     case 2:
-    case 3:
-    case 4:
-      std::fprintf (f, "%s\t", lds[h-2]);
       switch (l) {
-      case 0: std::fprintf (f, "G(%d)", INT); break;
-      case 1: std::fprintf (f, "L(%d)", INT); break;
-      case 2: std::fprintf (f, "A(%d)", INT); break;
-      case 3: std::fprintf (f, "C(%d)", INT); break;
+      case 0: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+                 	+ "\tmovl	global_data(, %ecx, 4), %eax"
+                  + "PUSH %eax"); 
+        break;
+      } 
+      
+      case 1: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+                  + "\tnegl %ecx\n"
+                 	+ "\tmovl	-4(%ebp, %ecx, 4), %eax\n"
+                  + "PUSH %eax\n"); 
+        break;
+      } 
+      case 2: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+                 	+ "\tmovl	8(%ebp, %ecx, 4), %eax\n"
+                  + "PUSH %eax\n"); 
+        break;
+      } 
+      }
+      break;
+
+    case 3:
+          switch (l) {
+      case 0: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+                 	+ "\tlea global_data(, %ecx, 4), %eax\n"
+                  + "PUSH %eax"); 
+        break;
+      } 
+      
+      case 1: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") + 
+                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n" 
+                 	+ "\tmovl	%eax, global_data(, %ecx, 4)\n"); 
+        break;
+      } 
+      case 2: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl $" + std::to_string(ecx) + ", %ecx\n") 
+                 	+ "\tlea	8(%ebp, %ecx, 4), %eax\n"
+                  + "PUSH %eax\n"); 
+        break;
+      } 
+      }
+      break;
+    case 4:
+      switch (l) {
+      case 0: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") + 
+                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n" 
+                 	+ "\tmovl	%eax, global_data(, %ecx, 4)\n"); 
+        break;
+      } 
+      
+      case 1: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") + 
+                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n"
+                  + "\tnegl	%ecx\n" 
+                 	+ "\tmovl	%eax, -4(%ebp, %ecx, 4)\n"); 
+        break;
+      } 
+      case 2: {
+        int ecx = INT;
+        emit_code(std::string("\tmovl 	-4(%esi), %eax\n") + 
+                  + "\tmovl $" + std::to_string(ecx) + ", %ecx\n" 
+                 	+ "\tmovl	%eax, 8(%ebp, %ecx, 4)\n"); 
+        break;
+      } 
       }
       break;
 
     case 5:
       switch (l) {
       case  0:
-        std::fprintf (f, "CJMPz\t0x%.8x", INT);
-        break;
-
-      case  1:
-        std::fprintf (f, "CJMPnz\t0x%.8x", INT);
-        break;
-
-      case  2:
-        std::fprintf (f, "BEGIN\t%d ", INT);
-        std::fprintf (f, "%d", INT);
+        ss << " movl " << INT << R"( %ecx)" << "\n" <<
+        << R"(
+  FIX_BOX	%ecx
+	POP 	%edx
+	pushl	%ecx
+	pushl 	%edx
+	call 	Barray_patt
+	PUSH	%eax
+	addl	$8, %esp
+)";
         break;
 
       case  3:
-        std::fprintf (f, "CBEGIN\t%d ", INT);
-        std::fprintf (f, "%d", INT);
+        throw std::runtime_error("Unreachable code");
         break;
 
       case  4:
-        std::fprintf (f, "CLOSURE\t0x%.8x", INT);
-        {int n = INT;
-         for (int i = 0; i<n; i++) {
-         switch (BYTE) {
-           case 0: std::fprintf (f, "G(%d)", INT); break;
-           case 1: std::fprintf (f, "L(%d)", INT); break;
-           case 2: std::fprintf (f, "A(%d)", INT); break;
-           case 3: std::fprintf (f, "C(%d)", INT); break;
-         }
-         }
-        };
+        throw std::runtime_error("Unreachable code");
         break;
 
       case  5:
-        std::fprintf (f, "CALLC\t%d", INT);
+        throw std::runtime_error("Unreachable code");
         break;
 
       case  6:
-        std::fprintf (f, "CALL\t0x%.8x ", INT);
-        std::fprintf (f, "%d", INT);
+        cur_offset = get_cur_offset();
+        label = gen_label(INT);
+        ss << " movl " << INT << R"( %ecx)" << "\n" <<
+R"(
+  pushl %eax
+	pushl %ebx
+	pushl %ecx
+	pushl %edx
+
+	negl %ecx
+	lea (%esi, %ecx, 4), %eax
+	pushl %ebp
+	movl %esp, %ebp
+for)" << cur_offset << R"(:
+	cmpl %eax, %esi
+	je after)" << cur_offset << R"(
+	POP %ebx
+	pushl %ebx
+	jmp for)" << cur_offset << R"(
+after)" << cur_offset << R"(:
+
+	call )" << label << R"(
+
+	movl %ebp, %esp
+	popl %ebp
+
+	popl %edx
+	popl %ecx
+	popl %ebx
+	popl %eax)" << "\n";
         break;
 
       case  7:
-        std::fprintf (f, "TAG\t%s ", STRING);
-        std::fprintf (f, "%d", INT);
+        ss << " movl $" << STRING << R"( %eax)" << "\n" <<
+R"(
+  pushl   %eax
+  call	LtagHash
+	addl	$4, %esp
+)" <<
+              " movl " << INT << R"( %ecx)" << "\n" <<
+  R"(
+  FIX_BOX	%ecx
+	POP 	%edx
+	pushl	%ecx
+	pushl	%eax
+	pushl 	%edx
+	call 	Btag
+	PUSH	%eax
+	addl	$12, %esp
+  )";
         break;
 
       case  8:
-        std::fprintf (f, "ARRAY\t%d", INT);
+        cur_offset = get_cur_offset();
+        ss << " movl " << INT << R"( %ecx)" << "\n" <<
+R"(
+	movl	%ecx, %edx
+	testl	%edx, %edx
+	jz 		array_push_loop_end)" << cur_offset << R"(
+array_push_loop_begin)" << cur_offset << R"(:
+	POP		%ebx
+	pushl	%ebx
+	decl	%edx
+	jnz		array_push_loop_begin)" << cur_offset << R"(
+array_push_loop_end)" << cur_offset << R"(:
+	FIX_BOX	%ecx
+	pushl 	%ecx
+	call	Barray
+	popl	%ecx
+	FIX_UNB	%ecx
+	lea (%esp, %ecx, 4), %esp
+	PUSH	%eax
+)" << "\n";
         break;
 
       case  9:
-        std::fprintf (f, "FAIL\t%d", INT);
-        std::fprintf (f, "%d", INT);
+      ss << R"(
+	pushl	$scanline
+	call	failure
+)";
         break;
 
       case 10:
-        std::fprintf (f, "LINE\t%d", INT);
+        ss << " movl " << INT << R"( %ecx)" << "\n";
         break;
       }
       break;
 
     case 6:
-      std::fprintf (f, "PATT\t%s", pats[l]);
+              throw std::runtime_error("Unreachable code");
       break;
 
     case 7: {
       switch (l) {
       case 0:
-        std::fprintf (f, "CALL\tLread");
+        ss << R"(
+bc_read:
+	call	Lread
+	PUSH	%eax
+)";
         break;
 
       case 1:
-        std::fprintf (f, "CALL\tLwrite");
+        emit_code(R"(
+	POP		%ebx
+	pushl	%ebx
+	call	Lwrite
+	popl	%ebx
+	FIX_BOX	%eax
+	PUSH	%eax
+        )");
         break;
 
       case 2:
-        std::fprintf (f, "CALL\tLlength");
+      ss << R"(
+	POP		%ebx
+	pushl	%ebx
+	call	Llength
+	popl	%ebx
+	PUSH	%eax
+)";
         break;
 
       case 3:
-        std::fprintf (f, "CALL\tLstring");
+        throw std::runtime_error("Unreachable code\n");
         break;
 
       case 4:
-        std::fprintf (f, "CALL\tBarray\t%d", INT);
+      cur_offset = get_cur_offset();
+      label = gen_label(INT);
+        ss << " movl " << INT << R"( %ecx
+	POP	%eax
+	FIX_UNB	%eax
+	testl	%eax, %eax
+	jnz	not_go)"  << cur_offset << "\n" <<
+"  jmp "        << label << "\n" <<
+"  not_go" << cur_offset <<":\n";
+        break;
+
+      case  1:
+      cur_offset = get_cur_offset();
+      label = gen_label(INT);
+        ss << " movl " << INT << R"( %ecx
+	POP	%eax
+	FIX_UNB	%eax
+	testl	%eax, %eax
+	jz	not_go)"  << cur_offset << "\n" <<
+"  jmp "        << label   << "\n" <<
+"  not_go" << cur_offset <<":\n";
+        break;
+
+      case  2:
+        ss << " movl " << INT << R"( %ecx)" << "\n" <<
+              " movl " << INT << R"( %edx)" << "\n" <<
+R"(pushl %ebp
+	movl %esp, %ebp
+	lea (,%edx,4), %edx
+	subl %edx, %esp)" << "\n";
         break;
       }
     }
@@ -348,10 +669,11 @@ void disassemble (FILE *f, bytefile *bf) {
   }
   while (1);
  stop: std::fprintf (f, "<end>\n");
+ return ss.str();
 }
 
 /* Dumps the contents of the file */
-void dump_file (FILE *f, bytefile *bf) {
+std::string dump_file (FILE *f, bytefile *bf) {
   int i;
 
   std::fprintf (f, "String table size       : %d\n", bf->stringtab_size);
@@ -363,12 +685,14 @@ void dump_file (FILE *f, bytefile *bf) {
     std::fprintf (f, "   0x%.8x: %s\n", get_public_offset (bf, i), get_public_name (bf, i));
 
   std::fprintf (f, "Code:\n");
-  disassemble (f, bf);
+  return disassemble (f, bf);
 }
 
 int main (int argc, const char* argv[]) {
   bytefile *f = read_file (argv[1]);
-  dump_file (stderr, f);
+  std::string code = dump_file (stderr, f);
+
+  std::cout << code << std::endl;
 
   delete f->global_ptr;
   delete f->buffer;
